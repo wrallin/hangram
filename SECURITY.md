@@ -36,6 +36,8 @@ In scope:
 Known limitations, documented in the README and not considered vulnerabilities:
 
 - a short PIN can be brute-forced offline from stolen files;
+- the existence and number of hidden spaces is visible in the files on disk; only their contents
+  are protected;
 - a profile is in plaintext on disk while its Telegram client is running;
 - deleted files cannot be reliably wiped from SSDs;
 - traces the operating system or Telegram Desktop leave outside the data folder;

@@ -18,6 +18,8 @@ export interface IpcCalls {
   'vault:lock': () => void
   'vault:change-pin': (oldPin: string, newPin: string) => void
   'vault:set-biometric': (enabled: boolean) => void
+  'vault:add-space': (pin: string) => void
+  'vault:remove-space': (pin: string) => void
 
   'settings:update': (patch: Partial<Settings>) => void
 

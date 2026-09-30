@@ -63,7 +63,7 @@ function EnableProtection(): ReactElement {
 }
 
 function ManageProtection({ app }: { app: AppState }): ReactElement {
-  const [mode, setMode] = useState<'idle' | 'change' | 'disable'>('idle')
+  const [mode, setMode] = useState<'idle' | 'change' | 'disable' | 'add-space' | 'remove-space'>('idle')
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [repeat, setRepeat] = useState('')
@@ -85,13 +85,26 @@ function ManageProtection({ app }: { app: AppState }): ReactElement {
       if (await task.run(() => call('vault:change-pin', current, next))) reset()
     } else if (mode === 'disable') {
       if (await task.run(() => call('vault:disable', current))) reset()
+    } else if (mode === 'add-space') {
+      if (next !== repeat) return task.setError(s.pinMismatch)
+      if (await task.run(() => call('vault:add-space', next))) reset()
+    } else if (mode === 'remove-space') {
+      // On success the vault locks and this sheet goes away with it.
+      await task.run(() => call('vault:remove-space', current))
     }
   }
+
+  const hidden = app.vault.hiddenSpace
+  const destructive = mode === 'disable' || mode === 'remove-space'
+  const asksCurrent = mode !== 'add-space'
+  const asksNew = mode === 'change' || mode === 'add-space'
+  const titles = { change: s.changingPin, disable: s.disabling, 'add-space': s.addingSpace, 'remove-space': s.removingSpace, idle: '' }
+  const actions = { change: s.changePin, disable: s.decryptAndDisable, 'add-space': s.createSpace, 'remove-space': s.removeSpaceConfirm, idle: '' }
 
   return (
     <>
       <Group title={s.locking}>
-        {app.vault.biometricAvailable ? (
+        {app.vault.biometricAvailable && !hidden ? (
           <Row label={s.touchId} hint={s.touchIdHint}>
             <Switch checked={app.vault.biometricEnabled} disabled={bio.busy} onChange={(value) => void bio.run(() => call('vault:set-biometric', value))} />
           </Row>
@@ -116,22 +129,35 @@ function ManageProtection({ app }: { app: AppState }): ReactElement {
           <Row label={s.changePin}>
             <Button onClick={() => setMode('change')}>{s.change}</Button>
           </Row>
-          <Row label={s.disable} hint={s.disableHint}>
-            <Button variant="destructive" onClick={() => setMode('disable')}>
-              {s.disableButton}
-            </Button>
+          <Row label={s.hiddenSpace} hint={s.hiddenSpaceHint}>
+            <Button onClick={() => setMode('add-space')}>{s.addSpace}</Button>
           </Row>
+          {hidden ? (
+            <Row label={s.removeSpace} hint={s.removeSpaceHint}>
+              <Button variant="destructive" onClick={() => setMode('remove-space')}>
+                {s.removeSpaceButton}
+              </Button>
+            </Row>
+          ) : (
+            <Row label={s.disable} hint={s.disableHint}>
+              <Button variant="destructive" onClick={() => setMode('disable')}>
+                {s.disableButton}
+              </Button>
+            </Row>
+          )}
         </Group>
       ) : (
         <>
-          <Group title={mode === 'change' ? s.changingPin : s.disabling}>
-            <Row label={s.currentPin}>
-              <TextField type="password" autoFocus value={current} onChange={(e) => setCurrent(e.target.value)} />
-            </Row>
-            {mode === 'change' ? (
+          <Group title={titles[mode]} footer={mode === 'add-space' ? s.addSpaceFooter : undefined}>
+            {asksCurrent ? (
+              <Row label={s.currentPin}>
+                <TextField type="password" autoFocus value={current} onChange={(e) => setCurrent(e.target.value)} />
+              </Row>
+            ) : null}
+            {asksNew ? (
               <>
-                <Row label={s.newPin}>
-                  <TextField type="password" value={next} onChange={(e) => setNext(e.target.value)} />
+                <Row label={mode === 'add-space' ? s.spacePin : s.newPin}>
+                  <TextField type="password" autoFocus={!asksCurrent} placeholder={s.pinPlaceholder} value={next} onChange={(e) => setNext(e.target.value)} />
                 </Row>
                 <Row label={t().common.repeat}>
                   <TextField type="password" value={repeat} onChange={(e) => setRepeat(e.target.value)} />
@@ -143,12 +169,12 @@ function ManageProtection({ app }: { app: AppState }): ReactElement {
           <div className="actions">
             <Button onClick={reset}>{t().common.cancel}</Button>
             <Button
-              variant={mode === 'disable' ? 'destructive' : 'primary'}
+              variant={destructive ? 'destructive' : 'primary'}
               busy={task.busy}
-              disabled={!current || (mode === 'change' && (next.length < 4 || !repeat))}
+              disabled={(asksCurrent && !current) || (asksNew && (next.length < 4 || !repeat))}
               onClick={() => void confirm()}
             >
-              {mode === 'change' ? s.changePin : s.decryptAndDisable}
+              {actions[mode]}
             </Button>
           </div>
         </>

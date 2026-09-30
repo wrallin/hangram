@@ -56,6 +56,7 @@ Hangram keeps the convenience and fixes the storage:
 
 - PIN, auto-lock on idle and on sleep;
 - Touch ID on macOS;
+- hidden spaces: a second PIN opens a completely different account list;
 - locking closes every client and seals every profile.
 
 Shortcuts: `Ctrl/Cmd+N` add account, `Ctrl/Cmd+O` import `tdata`, `Ctrl/Cmd+L` lock,
@@ -135,8 +136,9 @@ Override it with the `HANGRAM_DATA_DIR` environment variable.
 ```
 data/
   settings.json            settings, always plain text
-  vault.json               master key, wrapped with the PIN
+  vault.json               master keys, one per space, each wrapped with its PIN
   accounts.enc             account list (accounts.json when protection is off)
+  accounts.<id>.enc        account list of a hidden space
   accounts/<id>/
     tdata.sealed           encrypted profile
     tdata/                 decrypted profile, while its client is open
@@ -159,6 +161,21 @@ PIN ── scrypt (N=2^17) ──► key ── AES-256-GCM ──► master key
   becomes invalid and the PIN is the way back in.
 - The media cache (`tdata/user_data`) is not re-encrypted: Telegram already encrypts it with its
   local key, and that key is inside the sealed container.
+
+### Hidden spaces
+
+A vault can hold more than one account list. Each list, or space, has its own PIN and its own
+master key, and the PIN typed on the lock screen decides which one opens. Nothing in the interface
+of one space mentions the others: there is no switcher, no counter and no list of spaces.
+
+A new space is created in Settings → Protection. To enter it, lock Hangram and type its PIN.
+Touch ID always opens the main space. Protection cannot be turned off while hidden spaces exist,
+because their data cannot be decrypted without their PINs; a hidden space is deleted from inside,
+together with its accounts.
+
+This hides a space from someone looking at the screen, not from someone examining the disk:
+`vault.json` shows how many spaces there are, and the `accounts` folder holds the profiles of all
+of them. What stays secret without the PIN is what is inside.
 
 ### ⚠️ What this does not protect against
 

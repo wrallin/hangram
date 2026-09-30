@@ -7,7 +7,7 @@ import { AppError } from './core/errors'
 import { SerialQueue } from './core/fsx'
 import { SettingsStore } from './core/settings'
 import { AccountStore } from './core/store'
-import { Vault } from './core/vault'
+import { MAIN_SPACE, Vault } from './core/vault'
 import { LoginService } from './mtproto/login'
 import { AccountService } from './services/accounts'
 import { Launcher } from './telegram/launcher'
@@ -106,7 +106,8 @@ export class Core {
         enabled: this.vault.enabled,
         locked: this.vault.locked,
         biometricAvailable: this.biometricAvailable,
-        biometricEnabled: this.vault.biometricEnabled
+        biometricEnabled: this.vault.biometricEnabled,
+        hiddenSpace: this.vault.spaceId !== MAIN_SPACE
       },
       settings: this.settings.current,
       runtime: this.runtime.state,
@@ -121,7 +122,7 @@ export class Core {
   }
 
   private async afterUnlock(): Promise<void> {
-    await this.store.load(this.vault.key('db'))
+    await this.store.load(this.vault.key('db'), this.vault.spaceId)
     await this.accounts.reconcile()
     this.notify()
   }
@@ -179,6 +180,9 @@ export class Core {
     return this.transitions.run(async () => {
       if (this.vault.locked) throw new AppError(t().errors.vaultLocked, 'locked')
       if (!(await this.vault.verifyPin(pin))) throw new AppError(t().common.wrongPin, 'bad-pin')
+      if (this.vault.spaceId !== MAIN_SPACE) throw new AppError(t().errors.mainSpaceOnly)
+      // Other spaces cannot be decrypted without their PINs, and dropping the vault would orphan them.
+      if (this.vault.spaceCount > 1) throw new AppError(t().errors.otherSpacesExist)
       // Order matters for crash safety: plaintext first, key material last.
       await this.accounts.unsealAll()
       await this.store.savePlainCopy()
@@ -192,6 +196,34 @@ export class Core {
     return this.transitions.run(async () => {
       Core.checkPin(newPin)
       await this.vault.changePin(oldPin, newPin)
+    })
+  }
+
+  /** Adds an empty account list behind another PIN. Nothing visible changes until that PIN is entered. */
+  addSpace(pin: string): Promise<void> {
+    return this.transitions.run(async () => {
+      Core.checkPin(pin)
+      await this.vault.addSpace(pin)
+    })
+  }
+
+  /** Deletes the open (non-main) space together with its accounts, then locks. */
+  removeSpace(pin: string): Promise<void> {
+    return this.transitions.run(async () => {
+      if (this.vault.locked) throw new AppError(t().errors.vaultLocked, 'locked')
+      if (this.vault.spaceId === MAIN_SPACE) throw new AppError(t().errors.mainSpaceOnly)
+      if (!(await this.vault.verifyPin(pin))) throw new AppError(t().common.wrongPin, 'bad-pin')
+      this.accounts.quiescing = true
+      try {
+        await this.login.cancelAll()
+        await this.launcher.stopAll()
+        for (const account of [...this.store.list()]) await this.accounts.remove(account.id)
+      } finally {
+        this.accounts.quiescing = false
+      }
+      await this.store.destroy()
+      await this.vault.removeCurrentSpace()
+      this.notify()
     })
   }
 
