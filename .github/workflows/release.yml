@@ -8,6 +8,12 @@ on:
   # Manual run: builds everything and keeps the files as workflow artifacts, without a release.
   workflow_dispatch:
 
+# A retag should drop the previous release run instead of leaving its Mac
+# jobs sitting in the queue.
+concurrency:
+  group: release
+  cancel-in-progress: true
+
 jobs:
   build:
     name: ${{ matrix.platform.name }} (${{ matrix.variant }})
@@ -16,7 +22,6 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { name: macOS, os: macos-latest, target: '--mac --arm64 --x64' }
           - { name: Windows, os: windows-latest, target: '--win --x64' }
           - { name: Linux, os: ubuntu-latest, target: '--linux --x64' }
         # full ships Telegram Desktop inside; lite downloads it on first launch.
@@ -64,10 +69,61 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  # macos-latest is macOS 26. Those runners stay queued and the job is then
+  # cancelled. macOS 15 still gets a machine. One job builds both flavours so
+  # the release asks for a single Mac instead of two.
+  build-mac:
+    name: macOS
+    runs-on: macos-15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Take the version from the tag
+        if: github.ref_type == 'tag'
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+
+      - run: npm test
+
+      - run: npm run build
+
+      - name: Package
+        run: |
+          mkdir -p resources/bin resources/telegram packaging
+          package() {
+            suffix="$1"
+            rm -rf "dist${suffix}"
+            npx electron-builder --mac --arm64 --x64 --publish never \
+              "-c.directories.output=dist${suffix}" \
+              "-c.artifactName=\${productName}-\${version}-\${os}-\${arch}${suffix}.\${ext}"
+            mv "dist${suffix}"/*.dmg packaging/
+          }
+          npm run fetch-telegram
+          package ""
+          rm -rf resources/telegram
+          mkdir -p resources/telegram
+          package "-lite"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macOS
+          path: packaging/*.dmg
+          if-no-files-found: error
+          retention-days: 7
+
   release:
     name: Draft release
     if: github.ref_type == 'tag'
-    needs: build
+    needs: [build, build-mac]
     runs-on: ubuntu-latest
     permissions:
       contents: write
