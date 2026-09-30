@@ -132,3 +132,50 @@ describe('core', () => {
     expect(await exists(core.accounts.dir(id))).toBe(false)
   })
 })
+
+describe('spaces', () => {
+  it('shows a separate account list for each PIN and never mixes them', async () => {
+    let core = makeCore()
+    await core.start()
+    const one = await makeTdata('one', 111n)
+    const two = await makeTdata('two', 222n)
+    const mainId = await core.accounts.importTdata(one.dir)
+    await core.enableProtection('main-pin')
+    await expect(core.addSpace('main-pin')).rejects.toThrow()
+    await core.addSpace('other-pin')
+    expect(core.state()).toMatchObject({ vault: { hiddenSpace: false }, accounts: [{ userId: '111' }] })
+
+    await core.lock()
+    expect(await core.unlock('other-pin')).toBe(true)
+    expect(core.state()).toMatchObject({ vault: { hiddenSpace: true }, accounts: [] })
+    // The same Telegram account may live in both spaces: they know nothing of each other.
+    await core.accounts.importTdata(one.dir)
+    const hiddenId = await core.accounts.importTdata(two.dir)
+    expect(core.state().accounts.map((account) => account.userId).sort()).toEqual(['111', '222'])
+    await expect(core.disableProtection('other-pin')).rejects.toThrow()
+
+    core = makeCore()
+    await core.start()
+    expect(await core.unlock('main-pin')).toBe(true)
+    expect(core.state().accounts.map((account) => account.userId)).toEqual(['111'])
+    // An account of the other space simply does not exist here.
+    await expect(core.accounts.exportTdata(hiddenId, join(root, 'leak'))).rejects.toThrow()
+    await expect(core.disableProtection('main-pin')).rejects.toThrow(/hidden spaces/)
+    await expect(core.removeSpace('main-pin')).rejects.toThrow()
+
+    await core.lock()
+    expect(await core.unlock('other-pin')).toBe(true)
+    expect(core.state().accounts).toHaveLength(2)
+    await expect(core.removeSpace('main-pin')).rejects.toThrow(/Wrong PIN/)
+    await core.removeSpace('other-pin')
+    expect(core.state()).toMatchObject({ vault: { enabled: true, locked: true } })
+    expect(await exists(core.accounts.dir(hiddenId))).toBe(false)
+    expect((await readdir(dataDir)).filter((name) => name.startsWith('accounts.'))).toEqual(['accounts.enc'])
+    expect(await core.unlock('other-pin')).toBe(false)
+
+    expect(await core.unlock('main-pin')).toBe(true)
+    expect(await exists(join(core.accounts.dir(mainId), 'tdata.sealed'))).toBe(true)
+    await core.disableProtection('main-pin')
+    expect(core.state().accounts.map((account) => account.userId)).toEqual(['111'])
+  })
+})

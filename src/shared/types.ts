@@ -37,6 +37,8 @@ export interface VaultState {
   locked: boolean
   biometricAvailable: boolean
   biometricEnabled: boolean
+  /** The open space is not the main one: Touch ID and switching protection off do not apply. */
+  hiddenSpace: boolean
 }
 
 export interface Settings {

@@ -43,6 +43,10 @@ export const en: Messages = {
     touchIdNotConfigured: 'Touch ID is not set up',
     touchIdBadKey: 'Touch ID returned an invalid key',
     touchIdEnableFailed: (reason) => `Could not enable Touch ID: ${reason}`,
+    pinUnavailable: 'This PIN cannot be used. Choose a different one',
+    mainSpaceOnly: 'This is only available in the main space',
+    otherSpacesExist:
+      'Protection cannot be turned off while hidden spaces exist. Open each one with its PIN and delete it in Settings',
     windowClosed: 'The window is closed',
     invalidInput: 'Invalid input',
 
@@ -289,6 +293,20 @@ export const en: Messages = {
     currentPin: 'Current PIN',
     newPin: 'New PIN',
     decryptAndDisable: 'Decrypt and turn off',
+
+    hiddenSpace: 'Hidden space',
+    hiddenSpaceHint: 'A separate account list behind another PIN',
+    addSpace: 'Add…',
+    addingSpace: 'New hidden space',
+    addSpaceFooter:
+      'The PIN entered on the lock screen decides which list opens. To get into the new space, lock Hangram and enter this PIN. It is not shown anywhere in the interface; a forgotten PIN cannot be recovered.',
+    spacePin: 'Space PIN',
+    createSpace: 'Create',
+    removeSpace: 'Delete this space',
+    removeSpaceHint: 'Its accounts will be deleted from this computer',
+    removeSpaceButton: 'Delete…',
+    removingSpace: 'Deleting the space',
+    removeSpaceConfirm: 'Delete the space and its accounts',
 
     runtimeVersion: (version, custom) => `Version ${version}${custom ? ' · custom build' : ''}`,
     downloading: (percent) => `Downloading…${percent === null ? '' : ` ${percent}%`}`,

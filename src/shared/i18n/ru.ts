@@ -50,6 +50,10 @@ export const ru = {
     touchIdNotConfigured: 'Touch ID не настроен',
     touchIdBadKey: 'Touch ID вернул неверный ключ',
     touchIdEnableFailed: (reason: string) => `Не удалось включить Touch ID: ${reason}`,
+    pinUnavailable: 'Этот PIN-код использовать нельзя. Выберите другой',
+    mainSpaceOnly: 'Это действие доступно только в основном пространстве',
+    otherSpacesExist:
+      'Защиту нельзя выключить, пока есть скрытые пространства. Войдите в каждое под его PIN-кодом и удалите его в настройках',
     windowClosed: 'Окно закрыто',
     invalidInput: 'Некорректные данные',
 
@@ -301,6 +305,20 @@ export const ru = {
     currentPin: 'Текущий PIN-код',
     newPin: 'Новый PIN-код',
     decryptAndDisable: 'Расшифровать и выключить',
+
+    hiddenSpace: 'Скрытое пространство',
+    hiddenSpaceHint: 'Отдельный список аккаунтов под другим PIN-кодом',
+    addSpace: 'Добавить…',
+    addingSpace: 'Новое скрытое пространство',
+    addSpaceFooter:
+      'Какой PIN-код введён на экране блокировки, тот список и откроется. Чтобы попасть в новое пространство, заблокируйте Hangram и введите этот PIN-код. Нигде в интерфейсе оно не показывается; забытый PIN восстановить нельзя.',
+    spacePin: 'PIN-код пространства',
+    createSpace: 'Создать',
+    removeSpace: 'Удалить это пространство',
+    removeSpaceHint: 'Его аккаунты будут удалены с этого компьютера',
+    removeSpaceButton: 'Удалить…',
+    removingSpace: 'Удаление пространства',
+    removeSpaceConfirm: 'Удалить пространство и аккаунты',
 
     runtimeVersion: (version: string, custom: boolean) => `Версия ${version}${custom ? ' · своя сборка' : ''}`,
     downloading: (percent: number | null) => `Загрузка…${percent === null ? '' : ` ${percent}%`}`,

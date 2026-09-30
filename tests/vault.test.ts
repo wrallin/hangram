@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { Biometric } from '../src/main/core/biometric'
 import { exists } from '../src/main/core/fsx'
 import { sealTdata, unsealTdata } from '../src/main/core/sealer'
-import { Vault } from '../src/main/core/vault'
+import { MAIN_SPACE, Vault } from '../src/main/core/vault'
 
 let dir: string
 beforeEach(async () => {
@@ -127,6 +127,60 @@ describe('vault', () => {
     expect(await a.unlock('1234')).toBe(false)
     expect(await a.unlock('5678')).toBe(true)
     expect(a.key('db')!.equals(key)).toBe(true)
+  })
+
+  it('opens a different space for each PIN and keeps their keys apart', async () => {
+    const a = vault()
+    await a.enable('1234')
+    const mainKey = a.key('db')!
+    await expect(a.addSpace('1234')).rejects.toThrow()
+    await a.addSpace('5678')
+    // Adding a space does not move the user into it.
+    expect(a.spaceId).toBe(MAIN_SPACE)
+    expect(a.spaceCount).toBe(2)
+
+    const b = vault()
+    await b.load()
+    expect(await b.unlock('5678')).toBe(true)
+    expect(b.spaceId).not.toBe(MAIN_SPACE)
+    expect(b.key('db')!.equals(mainKey)).toBe(false)
+    expect(await b.verifyPin('1234')).toBe(false)
+
+    // A PIN can neither be changed to the one of another space nor changed from outside its space.
+    await expect(b.changePin('5678', '1234')).rejects.toThrow()
+    await expect(b.changePin('1234', '0000')).rejects.toThrow()
+    await b.changePin('5678', '8765')
+    await expect(b.setBiometric(true)).rejects.toThrow()
+
+    expect(await b.unlock('1234')).toBe(true)
+    expect(b.spaceId).toBe(MAIN_SPACE)
+    expect(b.key('db')!.equals(mainKey)).toBe(true)
+    await expect(b.removeCurrentSpace()).rejects.toThrow()
+
+    expect(await b.unlock('8765')).toBe(true)
+    await b.removeCurrentSpace()
+    expect(b.locked).toBe(true)
+    expect(b.spaceCount).toBe(1)
+    expect(await b.unlock('8765')).toBe(false)
+    expect(await b.unlock('1234')).toBe(true)
+  })
+
+  it('reads a vault written before spaces existed', async () => {
+    const a = vault()
+    await a.enable('1234')
+    const key = a.key('db')!
+    const path = join(dir, 'vault.json')
+    const current = JSON.parse(await readFile(path, 'utf8'))
+    const legacy = { version: 1, kdf: current.kdf, wrappedKey: current.slots[0].wrappedKey, biometric: null }
+    await writeFile(path, JSON.stringify(legacy))
+
+    const b = vault()
+    await b.load()
+    expect(await b.unlock('1234')).toBe(true)
+    expect(b.spaceId).toBe(MAIN_SPACE)
+    expect(b.key('db')!.equals(key)).toBe(true)
+    await b.addSpace('5678')
+    expect(JSON.parse(await readFile(path, 'utf8')).version).toBe(2)
   })
 
   it('disables cleanly', async () => {

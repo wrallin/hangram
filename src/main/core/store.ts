@@ -1,6 +1,7 @@
 /**
  * Account metadata and avatars. One file: `accounts.enc` (AES-256-GCM under the vault's
- * "db" subkey) when protection is on, `accounts.json` otherwise. While the vault is
+ * "db" subkey) when protection is on, `accounts.json` otherwise. Every additional space
+ * of the vault has a file of its own, `accounts.<space id>.enc`. While the vault is
  * locked nothing is held in memory.
  */
 import { promises as fs } from 'node:fs'
@@ -10,6 +11,7 @@ import { open, seal } from './crypto'
 import { AppError } from './errors'
 import { SerialQueue, readFileIfExists, writeFileAtomic } from './fsx'
 import { t } from '@shared/i18n'
+import { MAIN_SPACE } from './vault'
 
 interface StoreData {
   version: 1
@@ -25,9 +27,9 @@ export class AccountStore {
   private data: StoreData | null = null
   private readonly queue = new SerialQueue()
   private readonly plainPath: string
-  private readonly sealedPath: string
+  private sealedPath: string
 
-  constructor(dir: string) {
+  constructor(private readonly dir: string) {
     this.plainPath = join(dir, 'accounts.json')
     this.sealedPath = join(dir, 'accounts.enc')
   }
@@ -41,9 +43,16 @@ export class AccountStore {
     return this.data
   }
 
-  /** `key` is null when protection is off. */
-  async load(key: Buffer | null): Promise<void> {
+  /** `key` is null when protection is off. `space` selects which list of the vault to open. */
+  async load(key: Buffer | null, space: string = MAIN_SPACE): Promise<void> {
+    const main = space === MAIN_SPACE
+    this.sealedPath = join(this.dir, main ? 'accounts.enc' : `accounts.${space}.enc`)
     const sealed = key ? await readFileIfExists(this.sealedPath) : null
+    if (key && !main) {
+      // The plaintext file belongs to the main space only.
+      this.data = sealed ? (JSON.parse(open(key, sealed, AAD).toString('utf8')) as StoreData) : empty()
+      return
+    }
     if (key && sealed) {
       this.data = JSON.parse(open(key, sealed, AAD).toString('utf8')) as StoreData
       // A plaintext copy can only be a leftover of an interrupted mode switch.
@@ -56,6 +65,12 @@ export class AccountStore {
   }
 
   unload(): void {
+    this.data = null
+  }
+
+  /** Deletes the file of the loaded space and forgets its contents. */
+  async destroy(): Promise<void> {
+    await this.queue.run(() => fs.rm(this.sealedPath, { force: true }))
     this.data = null
   }
 

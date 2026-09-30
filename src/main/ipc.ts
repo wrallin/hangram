@@ -147,6 +147,8 @@ export function registerIpc(
     'vault:lock': { args: none, run: () => core.lock() },
     'vault:change-pin': { args: z.tuple([secret, secret]), run: (a, b) => core.changePin(a, b) },
     'vault:set-biometric': { args: z.tuple([z.boolean()]), run: (enabled) => core.setBiometric(enabled) },
+    'vault:add-space': { args: z.tuple([secret]), run: (pin) => core.addSpace(pin) },
+    'vault:remove-space': { args: z.tuple([secret]), run: (pin) => core.removeSpace(pin) },
 
     'settings:update': {
       args: z.tuple([settingsPatch]),
