@@ -1,0 +1,88 @@
+# Builds installers for every platform when a version tag (v1.2.3) is pushed
+# and attaches them to a draft GitHub release.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  # Manual run: builds everything and keeps the files as workflow artifacts, without a release.
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.platform.name }} (${{ matrix.variant }})
+    runs-on: ${{ matrix.platform.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { name: macOS, os: macos-latest, target: '--mac --arm64 --x64' }
+          - { name: Windows, os: windows-latest, target: '--win --x64' }
+          - { name: Linux, os: ubuntu-latest, target: '--linux --x64' }
+        # full ships Telegram Desktop inside; lite downloads it on first launch.
+        variant: [full, lite]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Take the version from the tag
+        if: github.ref_type == 'tag'
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+
+      - run: npm test
+
+      - run: npm run build
+
+      - name: Bundle Telegram Desktop
+        if: matrix.variant == 'full'
+        run: npm run fetch-telegram
+
+      - name: Package
+        run: |
+          mkdir -p resources/bin resources/telegram
+          suffix=""
+          if [ "${{ matrix.variant }}" = "lite" ]; then suffix="-lite"; fi
+          npx electron-builder ${{ matrix.platform.target }} --publish never \
+            "-c.artifactName=\${productName}-\${version}-\${os}-\${arch}${suffix}.\${ext}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform.name }}-${{ matrix.variant }}
+          path: |
+            dist/*.dmg
+            dist/*.exe
+            dist/*.AppImage
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Draft release
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" artifacts/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --draft
