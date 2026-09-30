@@ -1,0 +1,70 @@
+name: Bug report
+description: Something does not work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not attach `tdata` folders, session strings, `vault.json`, or screenshots with phone numbers or login codes.
+        Security problems go through the Security tab, not here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version
+      placeholder: macOS 15.5, Windows 11 24H2, Ubuntu 24.04
+  - type: input
+    id: version
+    attributes:
+      label: Hangram version
+      description: Shown in Settings. Say whether it is the regular or the lite build.
+    validations:
+      required: true
+  - type: input
+    id: telegram
+    attributes:
+      label: Telegram Desktop version
+      description: Shown in Settings. Mention if you use your own build.
+  - type: dropdown
+    id: source
+    attributes:
+      label: How was the account added
+      options:
+        - Not related to a specific account
+        - Phone number
+        - QR code
+        - Logged in inside Telegram Desktop
+        - Imported tdata
+        - Session string
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Error text, screenshots with private data removed.

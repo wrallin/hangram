@@ -1,0 +1,7 @@
+node_modules
+out
+dist
+resources/bin
+resources/telegram
+.DS_Store
+*.log
