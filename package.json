@@ -21,8 +21,8 @@
   },
   "dependencies": {
     "qrcode": "^1.5.4",
-    "teleproto": "^1.229.0",
-    "zod": "^4.6.5"
+    "teleproto": "^1.232.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",
@@ -31,14 +31,14 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^44.5.1",
-    "electron-builder": "^26.15.3",
+    "electron-builder": "^26.18.0",
     "electron-vite": "^5.0.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^7.0.0",
-    "vitest": "^5.0.2",
-    "zustand": "^5.0.15"
+    "vitest": "^5.0.5",
+    "zustand": "^5.0.16"
   }
 }
